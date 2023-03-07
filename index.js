@@ -6,7 +6,7 @@ const path = require('path');
 const { code } = require('tar/lib/types');
 const jwt_decode = require('jwt-decode');
 const { on } = require('events');
-const sessions = require('express-session');
+const session = require('express-session');
 const { application } = require('express');
 
 
@@ -17,10 +17,14 @@ app.use(express.static('static'));
 const oneDay = 1000 * 60 * 60 * 24;
 
 //session middleware
-app.use(sessions({
+app.use(session({
     secret: `${process.env.SESSION_SECRET}`,
     saveUninitialized:true,
-    cookie: { maxAge: oneDay , path: '/' },
+    cookie: { 
+      maxAge: oneDay, 
+      path: '/',
+      sameSite: 'strict',
+    },
     resave: false
 }));
 
@@ -29,11 +33,11 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(__dirname));
 
-app.get('/home', (req, res) => {
+app.get('/home', (_req, res) => {
   res.sendFile(path.join(__dirname, '/static/home.html'));
 });
 
-app.get('/auth', (req, res) => {
+app.get('/auth', (_req, res) => {
   res.redirect(
     `https://clever.com/oauth/authorize?response_type=code&redirect_uri=${process.env.REDIRECT_URI}&client_id=${process.env.CLEVER_CLIENT_ID}`,
   );
@@ -47,6 +51,8 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
     grant_type: 'authorization_code',
     redirect_uri: `${process.env.REDIRECT_URI}`,
   });
+
+  console.log(code)
   const opts = { headers: { accept: 'application/json' } };
   axios
     .post('https://clever.com/oauth/tokens', body, opts)
@@ -55,8 +61,8 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
       // eslint-disable-next-line no-console
       console.log('My token:', token);
       
-      const JWT = `${token}`;
-      const decoded = jwt_decode(JWT);
+      var JWT = `${token}`;
+      var decoded = jwt_decode(JWT);
       
       //create user object
       const user = {
@@ -66,47 +72,42 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
         user_id: decoded['user_id'],
         email: decoded['email'],
       }
-      
-      var session;
-      req.session.loggedin=true
 
       res.redirect('/home');
     })
     .catch((err) => res.status(500).json({ err: err.message }));
 });
 
-app.get('/',(req,res) => {
-  session=req.session;
-  if(session.userid){
-    res.send("Welcome User <a href=\'/logout'>click to logout</a>");
-  }else
-  res.sendFile('views/index.html',{root:__dirname})
-});    
-
 app.post('/user',(req,res) => {
-  if(req.session.loggedin == true){
+  if(req.session.loggedin = true){
       session=req.session;
       session.userid=req.body.username;
-      console.log(req.session)
-      res.send(`Hey there, welcome <a href=\'/logout'>click to logout</a>`);
   }
   else{
       res.send('Invalid username or password');
   }
 })
 
+app.get('/',(req,res) => {
+  session=req.session;
+  if(session.userid){
+    res.send("Welcome User <a href=\'/logout'>click to logout</a>");
+  }else
+  res.sendFile('static/index.html',{root:__dirname})
+});    
+
 //route for adding cookie
-app.get('/setuser', (_req, res)=>{
-        res.cookie('userId', `${decoded['user_id']}`, { maxAge: oneDay, path: '/' })
-        res.send('user data added to cookie');
+app.get('/setuser', (_req, res) => {
+  res.cookie('userId', `${decoded['user_id']}`, { maxAge: oneDay, path: '/' })
+  res.send('user data added to cookie');
 });
 
 //Iterate user data from cookie
-app.get('/getuser', (req, res)=>{
+app.get('/getuser', (req, res) => {
   res.send(req.cookies);
 });
 
-app.get('logout', (req, res) => {
+app.get('/logout', (req, res) => {
   req.session.destroy();
   res.redirect('/')
 });
