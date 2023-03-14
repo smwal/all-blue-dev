@@ -33,11 +33,15 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(__dirname));
 
-app.get('/home', (_req, res) => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '/static/index.html'));
+});
+
+app.get('/home', (req, res) => {
   res.sendFile(path.join(__dirname, '/static/home.html'));
 });
 
-app.get('/auth', (_req, res) => {
+app.get('/auth', (req, res) => {
   res.redirect(
     `https://clever.com/oauth/authorize?response_type=code&redirect_uri=${process.env.REDIRECT_URI}&client_id=${process.env.CLEVER_CLIENT_ID}`,
   );
@@ -51,8 +55,7 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
     grant_type: 'authorization_code',
     redirect_uri: `${process.env.REDIRECT_URI}`,
   });
-
-  console.log(code)
+  
   const opts = { headers: { accept: 'application/json' } };
   axios
     .post('https://clever.com/oauth/tokens', body, opts)
@@ -76,35 +79,6 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
       res.redirect('/home');
     })
     .catch((err) => res.status(500).json({ err: err.message }));
-});
-
-app.post('/user',(req,res) => {
-  if(req.session.loggedin = true){
-      session=req.session;
-      session.userid=req.body.username;
-  }
-  else{
-      res.send('Invalid username or password');
-  }
-})
-
-app.get('/',(req,res) => {
-  session=req.session;
-  if(session.userid){
-    res.send("Welcome User <a href=\'/logout'>click to logout</a>");
-  }else
-  res.sendFile('static/index.html',{root:__dirname})
-});    
-
-//route for adding cookie
-app.get('/setuser', (_req, res) => {
-  res.cookie('userId', `${decoded['user_id']}`, { maxAge: oneDay, path: '/' })
-  res.send('user data added to cookie');
-});
-
-//Iterate user data from cookie
-app.get('/getuser', (req, res) => {
-  res.send(req.cookies);
 });
 
 app.get('/logout', (req, res) => {

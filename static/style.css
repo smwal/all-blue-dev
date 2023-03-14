@@ -7,7 +7,7 @@ body {
         justify-content: center;
         align-items: center;
         background: rgb(67, 58, 106);
-        background: linear-gradient(0deg, rgb(216, 216, 216) 0%, rgb(67, 58, 106) 100%);
+        background: linear-gradient(0deg, rgb(48, 24, 145) 0%, rgb(68, 32, 214) 100%);
       }
       
       .content {
@@ -48,7 +48,7 @@ body {
         padding-top: 2px;
         border-radius: 20px;
         color: white;
-        background: rgb(92, 54, 242);
+        background: rgb(78, 34, 254);
         margin: 0 auto;
         border: none;
         font-size: 14px;
