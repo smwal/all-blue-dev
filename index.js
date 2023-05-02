@@ -8,6 +8,8 @@ const jwt_decode = require('jwt-decode');
 const { on } = require('events');
 const session = require('express-session');
 const { application } = require('express');
+const pug = require('pug');
+const { title } = require('process');
 
 
 const app = express();
@@ -30,15 +32,20 @@ app.use(session({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(express.static(__dirname));
+
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'pug');
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '/static/index.html'));
 });
 
 app.get('/home', (req, res) => {
-  res.sendFile(path.join(__dirname, '/static/home.html'));
+  res.render('home', {
+    title: 'All Blue - Dev'
+  });
+  //res.sendFile(path.join(__dirname, '/static/home.html'));
 });
 
 app.get('/auth', (req, res) => {
@@ -66,19 +73,32 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
       
       var JWT = `${token}`;
       var decoded = jwt_decode(JWT);
-      
-      //create user object
-      const user = {
-        firstName: decoded['given_name'],
-        lastName: decoded['family_name'],
-        district: decoded['district'],
-        user_id: decoded['user_id'],
-        email: decoded['email'],
-      }
 
+      let user = {
+        firstName: "",
+        lastName: "",
+        district: "",
+        user_id: "",
+        email: "",
+      }
+      
+      //update user object
+      user.firstName = decoded['given_name'],
+      user.lastName = decoded['family_name'],
+      user.district = decoded['district'],
+      user.user_id = decoded['user_id'],
+      user.email = decoded['email'],
+
+      
       res.redirect('/home');
     })
     .catch((err) => res.status(500).json({ err: err.message }));
+});
+
+
+
+app.get('/getuser', (req, res) => {
+  res.json(req.session.user)
 });
 
 app.get('/logout', (req, res) => {
