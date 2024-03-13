@@ -3,13 +3,15 @@ const axios = require('axios');
 const express = require('express');
 const { userInfo } = require('os');
 const path = require('path');
-const { code } = require('tar/lib/types');
+//const { code } = require('tar/lib/types');
+const jwt = require('jsonwebtoken');
 const jwt_decode = require('jwt-decode');
 const { on } = require('events');
 const session = require('express-session');
 const { application } = require('express');
 const pug = require('pug');
 const { title } = require('process');
+const fs = require('fs');
 
 
 const app = express();
@@ -38,14 +40,15 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '/static/index.html'));
-});
+  res.render('index', {
+    title: 'All Blue - Dev'
+  //res.sendFile(path.join(__dirname, '/static/views/index.pug'));
+})});
 
 app.get('/home', (req, res) => {
   res.render('home', {
     title: 'All Blue - Dev'
   });
-  //res.sendFile(path.join(__dirname, '/static/home.html'));
 });
 
 app.get('/auth', (req, res) => {
@@ -69,33 +72,35 @@ app.get('/auth/clever', ({ query: { code } }, res) => {
     .then((_res) => _res.data.id_token)
     .then((token) => {
       // eslint-disable-next-line no-console
-      console.log('My token:', token);
+      console.log('login successful');
       
       var JWT = `${token}`;
       var decoded = jwt_decode(JWT);
 
-      let user = {
+      var user = {
         firstName: "",
         lastName: "",
         district: "",
-        user_id: "",
+        id: "",
         email: "",
-      }
-      
-      //update user object
+      } 
+  
+      // update user object
       user.firstName = decoded['given_name'],
       user.lastName = decoded['family_name'],
       user.district = decoded['district'],
-      user.user_id = decoded['user_id'],
+      user.id = decoded['user_id'],
       user.email = decoded['email'],
-
       
+      console.log(user);
+
+      fs.writeFileSync('./users.json', JSON.stringify(user));
+      console.log('user has been logged');
+
       res.redirect('/home');
     })
     .catch((err) => res.status(500).json({ err: err.message }));
 });
-
-
 
 app.get('/getuser', (req, res) => {
   res.json(req.session.user)
