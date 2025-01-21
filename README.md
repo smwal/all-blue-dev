@@ -28,9 +28,9 @@ Before running the app, ensure the following are set up:
 
 ### **How to Use**
 1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/blkwhte/all-blue-dev.git
-   ```
+```bash
+git clone https://github.com/blkwhte/all-blue-dev.git
+```
    
 2. **Install Dependencies (if applicable): If your project has dependencies (e.g., express, axios), install them:**
 ```bash
@@ -46,11 +46,12 @@ node index.js
    - Open your browser and navigate to https://localhost:3000.
    - Click the "Log in with Clever" button to start the authentication flow.
    - Testing the App
-   - When prompted with the School Picker, enter your #DEMO district's Clever ID, which you can find in the Clever App Dashboard
+   - When prompted with the School Picker, enter the #DEMO All Blue (dev) district's Clever ID, 63e42be9ea7d85c10c19ebe5
    - Log in with Clever Passwords:
       - Example student:
-      - Username: 243615677
-      - Password: 243615677
+         - Username + Password: 243615677
+      - Example teacher:
+         - Username + Password: 341754
 
 5. **After successful authentication:**
 
