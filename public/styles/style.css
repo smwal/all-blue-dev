@@ -41,6 +41,13 @@ h1 {
   height: 160px;
 }
 
+.error-logo {
+  width: 120px; 
+  height: 120px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
 .user-details {
   text-align: center;
   width: 100%;

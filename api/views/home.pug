@@ -6,11 +6,11 @@ html
     meta(http-equiv='x-ua-compatible' content='ie=edge')
     title All Blue - Home
     link(href='https://fonts.googleapis.com/css2?family=Arvo&family=Kumbh+Sans&display=swap' rel='stylesheet')
-    link(href='style.css' rel='stylesheet')
+    link(href='/styles/style.css' rel='stylesheet')
     script(src='https://unpkg.com/axios/dist/axios.min.js')
   body
     .content
-      img.img-all-blue(src='all-blue-fake-logo.png', alt='All Blue Logo')
+      img.img-all-blue(src='/images/all-blue-fake-logo.png', alt='All Blue Logo')
       h1
         if user
           | Hi, #{user.firstName}! 🎉

@@ -1,6 +1,5 @@
 require('dotenv').config();
 const fs = require('fs');
-const https = require('https');
 const axios = require('axios');
 const express = require('express');
 const path = require('path');
@@ -8,27 +7,24 @@ const jwt_decode = require('jwt-decode');
 const session = require('express-session');
 const pug = require('pug');
 
-// Load SSL certificates from env variables for local development
-const privateKey = fs.readFileSync(process.env.SSL_KEY_PATH, 'utf8');
-const certificate = fs.readFileSync(process.env.SSL_CERT_PATH, 'utf8');
-const credentials = { key: privateKey, cert: certificate };
-
+// Initialize Express
 const app = express();
-app.use(express.static('static'));
 
-// Create 24 hours in milliseconds
-const oneDay = 1000 * 60 * 60 * 24;
+// Serve static files from the 'public' folder
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Session middleware
+const oneDay = 1000 * 60 * 60 * 24;
+
 app.use(session({
   secret: process.env.SESSION_SECRET,
   saveUninitialized: true,
   cookie: { 
     maxAge: oneDay,
     path: '/',
-    sameSite: 'None',  // Allow cross-origin requests
-    secure: true,      // Ensures cookies are only sent over HTTPS
-    httpOnly: true     // Prevents access to cookies via JavaScript (XSS protection)
+    sameSite: 'None',
+    secure: true,     
+    httpOnly: true     
   },
   resave: false,
 }));
@@ -41,21 +37,16 @@ app.set('view engine', 'pug');
 
 // Root route
 app.get('/', (req, res) => {
-  res.render('index', {
-    title: 'All Blue - Dev',
-  });
+  res.render('index', { title: 'All Blue - Dev' });
 });
 
 // Home route
 app.get('/home', (req, res) => {
-  console.log('Session on /home:', req.session);  // Debug session data
+  console.log('Session on /home:', req.session);
   if (req.session.user) {
-    res.render('home', {
-      title: 'All Blue - Home',
-      user: req.session.user,
-    });
+    res.render('home', { title: 'All Blue - Home', user: req.session.user });
   } else {
-    res.redirect('/');  // Redirect to login page if no user data in session
+    res.redirect('/');  // Redirect to login page if no user data
   }
 });
 
@@ -68,7 +59,7 @@ app.get('/auth', (req, res) => {
 
 // Clever OAuth callback
 app.get('/auth/clever', (req, res) => {
-  const { code } = req.query; // Extract code from query params
+  const { code } = req.query;
 
   const body = {
     client_id: process.env.CLEVER_CLIENT_ID,
@@ -86,7 +77,6 @@ app.get('/auth/clever', (req, res) => {
     .then((token) => {
       const decoded = jwt_decode(token);
 
-      // Save user data in session
       req.session.user = {
         firstName: decoded.given_name,
         lastName: decoded.family_name,
@@ -95,9 +85,8 @@ app.get('/auth/clever', (req, res) => {
         email: decoded.email,
       };
 
-      console.log('User session:', req.session.user);  // Debug session data
-
-      res.redirect('/home');  // Ensure redirection to /home after successful login
+      console.log('User session:', req.session.user);
+      res.redirect('/home');
     })
     .catch((err) => {
       console.error('OAuth Error:', err.message);
@@ -105,19 +94,19 @@ app.get('/auth/clever', (req, res) => {
     });
 });
 
-// Logout route (clear session)
+// Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destruction error:', err);
       res.redirect('/home');
     } else {
-      res.redirect('/');  // Redirect to index page after session is destroyed
+      res.redirect('/');
     }
   });
 });
 
-// Debug route (optional for development)
+// Debug route
 app.get('/debug', (req, res) => {
   res.json({
     session: req.session,
@@ -126,7 +115,27 @@ app.get('/debug', (req, res) => {
   });
 });
 
-// Start the HTTPS server
-https.createServer(credentials, app).listen(3000, () => {
-  console.log('App listening on https://localhost:3000');
-});
+// Check if running locally and create HTTPS server for local testing
+if (process.env.NODE_ENV === 'development') {
+  // Local development (HTTPS) server
+  const privateKey = fs.readFileSync(process.env.SSL_KEY_PATH, 'utf8');
+  const certificate = fs.readFileSync(process.env.SSL_CERT_PATH, 'utf8');
+  const credentials = { key: privateKey, cert: certificate };
+
+  // Start the HTTPS server for local testing
+  require('https').createServer(credentials, app).listen(3000, () => {
+    console.log('App listening on https://localhost:3000');
+  });
+} else {
+  // In production (serverless on Vercel), just export the app
+  module.exports = (req, res) => {
+    res.setHeader('Content-Type', 'text/html');
+  
+    // Render the Pug template (index.pug) from the views folder
+    const html = pug.renderFile(path.join(__dirname, 'views', 'index.pug'), {
+      title: 'All Blue - Home',
+    });
+  
+    res.status(200).send(html);
+  };
+}
