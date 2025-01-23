@@ -1,0 +1,25 @@
+doctype html
+html
+  head
+    meta(charset='utf-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no')
+    meta(http-equiv='x-ua-compatible' content='ie=edge')
+    title All Blue - Home
+    link(href='https://fonts.googleapis.com/css2?family=Arvo&family=Kumbh+Sans&display=swap' rel='stylesheet')
+    // Link to the CSS file in the public directory
+    link(href='/styles/style.css' rel='stylesheet')
+    script(src='https://unpkg.com/axios/dist/axios.min.js')
+
+  body
+    .content
+      .top
+        // Ensure the path to the logo image is correct
+        img.img-all-blue(src='/images/all-blue-fake-logo.png', alt='All Blue Logo')
+        h1
+          | Welcome! &#x1F44B;
+          br
+      .content-bottom
+        // Ensure the path to the login image is correct
+        a(href='/auth')
+          img(src='/images/LIWC.png', alt='Login with Clever')
+        p.sign-in-text In order to get started
