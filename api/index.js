@@ -115,27 +115,4 @@ app.get('/debug', (req, res) => {
   });
 });
 
-// Check if running locally and create HTTPS server for local testing
-if (process.env.NODE_ENV === 'development') {
-  // Local development (HTTPS) server
-  const privateKey = fs.readFileSync(process.env.SSL_KEY_PATH, 'utf8');
-  const certificate = fs.readFileSync(process.env.SSL_CERT_PATH, 'utf8');
-  const credentials = { key: privateKey, cert: certificate };
-
-  // Start the HTTPS server for local testing
-  require('https').createServer(credentials, app).listen(3000, () => {
-    console.log('App listening on https://localhost:3000');
-  });
-} else {
-  // In production (serverless on Vercel), just export the app
-  module.exports = (req, res) => {
-    res.setHeader('Content-Type', 'text/html');
-  
-    // Render the Pug template (index.pug) from the views folder
-    const html = pug.renderFile(path.join(__dirname, 'views', 'index.pug'), {
-      title: 'All Blue - Home',
-    });
-  
-    res.status(200).send(html);
-  };
-}
+module.exports = app;
