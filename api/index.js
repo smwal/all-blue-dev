@@ -22,9 +22,8 @@ app.use(session({
   cookie: { 
     maxAge: oneDay,
     path: '/',
-    sameSite: 'None',
-    secure: true,     
-    httpOnly: true     
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',  // Use 'None' in production for cross-origin cookies
+    secure: process.env.NODE_ENV === 'production',  // Use HTTPS in production only
   },
   resave: false,
 }));
@@ -43,6 +42,7 @@ app.get('/', (req, res) => {
 // Home route
 app.get('/home', (req, res) => {
   console.log('Session on /home:', req.session);
+
   if (req.session.user) {
     res.render('home', { title: 'All Blue - Home', user: req.session.user });
   } else {
@@ -58,7 +58,7 @@ app.get('/auth', (req, res) => {
 });
 
 // Clever OAuth callback
-app.get('/auth/clever', (req, res) => {
+ app.get('/auth/clever', (req, res) => {
   const { code } = req.query;
 
   const body = {
@@ -85,14 +85,14 @@ app.get('/auth/clever', (req, res) => {
         email: decoded.email,
       };
 
-      console.log('User session:', req.session.user);
+      console.log('User session after auth:', req.session.user);
       res.redirect('/home');
     })
     .catch((err) => {
       console.error('OAuth Error:', err.message);
       res.status(500).render('error', { message: 'Failed to log in. Please try again.' });
     });
-});
+}); 
 
 // Logout route
 app.get('/logout', (req, res) => {
