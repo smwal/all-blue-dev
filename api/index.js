@@ -1,64 +1,65 @@
 require('dotenv').config();
-const fs = require('fs');
-const axios = require('axios');
-const express = require('express');
-const path = require('path');
-const jwt_decode = require('jwt-decode');
-const session = require('express-session');
-const pug = require('pug');
 
-// Initialize Express
+const express = require('express');
+const session = require('express-session');
+const path = require('path');
+const pug = require('pug');
+const axios = require('axios');
+const jwt_decode = require('jwt-decode');
+
 const app = express();
 
-// Serve static files from the 'public' folder
-app.use(express.static(path.join(__dirname, '../public')));
+console.log("SESSION_SECRET:", process.env.SESSION_SECRET);
 
-// Session middleware
-const oneDay = 1000 * 60 * 60 * 24;
-
+// Session middleware configuration (using MemoryStore by default)
 app.use(session({
-  secret: process.env.SESSION_SECRET,
-  saveUninitialized: true,
+  secret: process.env.SESSION_SECRET, // A strong secret for sessions
+  saveUninitialized: false, // Don't save empty sessions
+  resave: false, // Don't resave unchanged sessions
   cookie: { 
-    maxAge: oneDay,
-    path: '/',
-    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',  // Use 'None' in production for cross-origin cookies
-    secure: process.env.NODE_ENV === 'production',  // Use HTTPS in production only
+    maxAge: 1000 * 60 * 60 * 24, // 1-day session duration
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // Set 'None' for cross-origin cookies in production
+    secure: process.env.NODE_ENV === 'production', // Only use HTTPS in production
   },
-  resave: false,
 }));
 
+// Middleware to parse incoming requests
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from 'public' folder
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Set views directory and engine for Pug
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
-// Root route
+// Root route (index page)
 app.get('/', (req, res) => {
+  console.log('Session before redirect:', req.session);  // Log session state before redirect
   res.render('index', { title: 'All Blue - Dev' });
 });
 
 // Home route
 app.get('/home', (req, res) => {
-  console.log('Session on /home:', req.session);
-
+  console.log('Session on /home:', req.session);  // Debugging session data
   if (req.session.user) {
     res.render('home', { title: 'All Blue - Home', user: req.session.user });
   } else {
-    res.redirect('/');  // Redirect to login page if no user data
+    console.log('No user session found, redirecting to login');
+    res.redirect('/');  // Redirect to login page if no user session
   }
 });
 
-// Redirect to Clever authorization
+// Redirect to Clever OAuth authorization
 app.get('/auth', (req, res) => {
   res.redirect(
     `https://clever.com/oauth/authorize?response_type=code&redirect_uri=${process.env.REDIRECT_URI}&client_id=${process.env.CLEVER_CLIENT_ID}`
   );
 });
 
-// Clever OAuth callback
- app.get('/auth/clever', (req, res) => {
+// Handle OAuth callback
+app.get('/auth/clever', (req, res) => {
   const { code } = req.query;
 
   const body = {
@@ -77,6 +78,7 @@ app.get('/auth', (req, res) => {
     .then((token) => {
       const decoded = jwt_decode(token);
 
+      // Store user data in session
       req.session.user = {
         firstName: decoded.given_name,
         lastName: decoded.family_name,
@@ -85,16 +87,16 @@ app.get('/auth', (req, res) => {
         email: decoded.email,
       };
 
-      console.log('User session after auth:', req.session.user);
+      console.log('User session:', req.session.user);  // Debug user session
       res.redirect('/home');
     })
     .catch((err) => {
       console.error('OAuth Error:', err.message);
       res.status(500).render('error', { message: 'Failed to log in. Please try again.' });
     });
-}); 
+});
 
-// Logout route
+// Logout route (destroy session)
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
@@ -106,13 +108,9 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// Debug route
-app.get('/debug', (req, res) => {
-  res.json({
-    session: req.session,
-    env: process.env.NODE_ENV,
-    userAgent: req.headers['user-agent'],
-  });
+app.listen(3000, () => {
+  console.log("App is listening on http://localhost:3000");
 });
 
-module.exports = app;
+// Export the app for serverless functions (Vercel deployment)
+// module.exports = app;
