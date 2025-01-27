@@ -9,8 +9,6 @@ const jwt_decode = require('jwt-decode');
 
 const app = express();
 
-console.log("SESSION_SECRET:", process.env.SESSION_SECRET);
-
 // Session middleware configuration (using MemoryStore by default)
 app.use(session({
   secret: process.env.SESSION_SECRET, // A strong secret for sessions
