@@ -113,4 +113,4 @@ app.listen(3000, () => {
 });
 
 // Export the app for serverless functions (Vercel deployment)
-// module.exports = app;
+module.exports = app;
