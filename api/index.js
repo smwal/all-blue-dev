@@ -2,6 +2,8 @@ require('dotenv').config();
 
 const express = require('express');
 const session = require('express-session');
+const { createClient } = require('redis'); // Use the new Redis client
+const RedisStore = require('connect-redis')(session);
 const path = require('path');
 const pug = require('pug');
 const axios = require('axios');
@@ -9,8 +11,30 @@ const jwt_decode = require('jwt-decode');
 
 const app = express();
 
-// Session middleware configuration (using MemoryStore by default)
+// Create a Redis client using the Upstash Redis URL
+const redisClient = createClient({
+  url: process.env.KV_URL, // Your Upstash Redis URL
+});
+
+// Handle Redis connection errors
+redisClient.on('error', (err) => {
+  console.error('Redis connection error:', err);
+});
+
+// Connect to Redis
+(async () => {
+  await redisClient.connect();
+  console.log('Connected to Redis');
+})();
+
+// Initialize the Redis store
+const redisStore = new RedisStore({
+  client: redisClient,
+});
+
+// Session middleware configuration with Redis store
 app.use(session({
+  store: redisStore,
   secret: process.env.SESSION_SECRET, // A strong secret for sessions
   saveUninitialized: false, // Don't save empty sessions
   resave: false, // Don't resave unchanged sessions
@@ -58,6 +82,9 @@ app.get('/auth', (req, res) => {
 
 // Handle OAuth callback
 app.get('/auth/clever', (req, res) => {
+
+  console.log('Received code:', code); //debugging code
+
   const { code } = req.query;
 
   const body = {
