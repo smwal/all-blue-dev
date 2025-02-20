@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "axios": "^1.3.2",
     "connect-redis": "^8.0.1",
     "dotenv": "^16.4.7",
