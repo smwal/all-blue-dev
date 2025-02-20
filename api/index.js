@@ -1,47 +1,23 @@
 require('dotenv').config();
-
 const express = require('express');
 const session = require('express-session');
-const { createClient } = require('redis'); // Use the new Redis client
-const RedisStore = require('connect-redis')(session);
 const path = require('path');
 const pug = require('pug');
 const axios = require('axios');
 const jwt_decode = require('jwt-decode');
+const { kv } = require('@vercel/kv');
 
 const app = express();
 
-// Create a Redis client using the Upstash Redis URL
-const redisClient = createClient({
-  url: process.env.KV_URL, // Your Upstash Redis URL
-});
-
-// Handle Redis connection errors
-redisClient.on('error', (err) => {
-  console.error('Redis connection error:', err);
-});
-
-// Connect to Redis
-(async () => {
-  await redisClient.connect();
-  console.log('Connected to Redis');
-})();
-
-// Initialize the Redis store
-const redisStore = new RedisStore({
-  client: redisClient,
-});
-
-// Session middleware configuration with Redis store
+// In-memory session middleware
 app.use(session({
-  store: redisStore,
-  secret: process.env.SESSION_SECRET, // A strong secret for sessions
+  secret: process.env.SESSION_SECRET,
   saveUninitialized: false, // Don't save empty sessions
   resave: false, // Don't resave unchanged sessions
   cookie: { 
     maxAge: 1000 * 60 * 60 * 24, // 1-day session duration
-    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // Set 'None' for cross-origin cookies in production
-    secure: process.env.NODE_ENV === 'production', // Only use HTTPS in production
+    sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+    secure: process.env.NODE_ENV === 'production',
   },
 }));
 
@@ -49,80 +25,98 @@ app.use(session({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from 'public' folder
+// Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// Set views directory and engine for Pug
+// Set up views
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'pug');
 
-// Root route (index page)
+// Root route
 app.get('/', (req, res) => {
-  console.log('Session before redirect:', req.session);  // Log session state before redirect
+  console.log('Session before redirect:', req.session);
   res.render('index', { title: 'All Blue - Dev' });
 });
 
 // Home route
-app.get('/home', (req, res) => {
-  console.log('Session on /home:', req.session);  // Debugging session data
+app.get('/home', async (req, res) => {
   if (req.session.user) {
     res.render('home', { title: 'All Blue - Home', user: req.session.user });
   } else {
-    console.log('No user session found, redirecting to login');
-    res.redirect('/');  // Redirect to login page if no user session
+    console.log('No user session found, fetching from Vercel KV...');
+    
+    // Retrieve user session from Vercel KV
+    const user = await kv.get(`session:${req.sessionID}`);
+    
+    if (user) {
+      req.session.user = user; // Restore session
+      res.render('home', { title: 'All Blue - Home', user });
+    } else {
+      console.log('No stored session, redirecting to login');
+      res.redirect('/');
+    }
   }
 });
 
-// Redirect to Clever OAuth authorization
+// OAuth authorization route
 app.get('/auth', (req, res) => {
   res.redirect(
     `https://clever.com/oauth/authorize?response_type=code&redirect_uri=${process.env.REDIRECT_URI}&client_id=${process.env.CLEVER_CLIENT_ID}`
   );
 });
 
-// Handle OAuth callback
-app.get('/auth/clever', (req, res) => {
-
-  console.log('Received code:', code); //debugging code
-
+// OAuth callback handler
+app.get('/auth/clever', async (req, res) => {
   const { code } = req.query;
 
-  const body = {
-    client_id: process.env.CLEVER_CLIENT_ID,
-    client_secret: process.env.CLEVER_CLIENT_SECRET,
-    code,
-    grant_type: 'authorization_code',
-    redirect_uri: process.env.REDIRECT_URI,
-  };
+  if (!code) {
+    return res.status(400).render('error', { message: 'Missing authorization code' });
+  }
 
-  const opts = { headers: { accept: 'application/json' } };
+  console.log('Received OAuth code:', code);
 
-  axios
-    .post('https://clever.com/oauth/tokens', body, opts)
-    .then((_res) => _res.data.id_token)
-    .then((token) => {
-      const decoded = jwt_decode(token);
+  try {
+    const body = {
+      client_id: process.env.CLEVER_CLIENT_ID,
+      client_secret: process.env.CLEVER_CLIENT_SECRET,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: process.env.REDIRECT_URI,
+    };
 
-      // Store user data in session
-      req.session.user = {
-        firstName: decoded.given_name,
-        lastName: decoded.family_name,
-        district: decoded.district,
-        id: decoded.user_id,
-        email: decoded.email,
-      };
+    const opts = { headers: { accept: 'application/json' } };
 
-      console.log('User session:', req.session.user);  // Debug user session
-      res.redirect('/home');
-    })
-    .catch((err) => {
-      console.error('OAuth Error:', err.message);
-      res.status(500).render('error', { message: 'Failed to log in. Please try again.' });
-    });
+    const { data } = await axios.post('https://clever.com/oauth/tokens', body, opts);
+    const token = data.id_token;
+    const decoded = jwt_decode(token);
+
+    const user = {
+      firstName: decoded.given_name,
+      lastName: decoded.family_name,
+      district: decoded.district,
+      id: decoded.user_id,
+      email: decoded.email,
+    };
+
+    // Store user session in memory and in Vercel KV
+    req.session.user = user;
+    await kv.set(`session:${req.sessionID}`, user, { ex: 86400 }); // Store session for 1 day
+
+    console.log('User session stored:', user);
+    res.redirect('/home');
+  } catch (err) {
+    console.error('OAuth Error:', err.message);
+    res.status(500).render('error', { message: 'Failed to log in. Please try again.' });
+  }
 });
 
-// Logout route (destroy session)
-app.get('/logout', (req, res) => {
+// Logout route
+app.get('/logout', async (req, res) => {
+  if (req.session.user) {
+    console.log('Destroying session for user:', req.session.user);
+    await kv.del(`session:${req.sessionID}`); // Remove session from KV
+  }
+
   req.session.destroy((err) => {
     if (err) {
       console.error('Session destruction error:', err);
